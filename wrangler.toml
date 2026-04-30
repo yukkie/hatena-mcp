@@ -25,11 +25,11 @@ class_name = "AccessTokenDurableObject"
 
 [[migrations]]
 tag = "v1"
-new_classes = ["UserDurableObject", "OAuthStateDurableObject"]
+new_sqlite_classes = ["UserDurableObject", "OAuthStateDurableObject"]
 
 [[migrations]]
 tag = "v2"
-new_classes = ["ClientDurableObject", "AuthCodeDurableObject", "AccessTokenDurableObject"]
+new_sqlite_classes = ["ClientDurableObject", "AuthCodeDurableObject", "AccessTokenDurableObject"]
 
 [observability]
 [observability.logs]
