@@ -205,6 +205,25 @@ export async function createEntry(env: Env, user: { accessToken: string; accessS
   return { raw: text };
 }
 
+export async function getEntry(env: Env, user: { accessToken: string; accessSecret: string; hatenaId: string }, blogId: string, entryId: string) {
+  const url = `${entryFeedUrl(user.hatenaId, blogId)}/${entryId}`;
+  const resp = await signedAtomRequest(env, user, 'GET', url);
+  const text = await resp.text();
+  if (!resp.ok) throw new Error(`Hatena get entry failed: ${resp.status} ${text}`);
+  const parsed = await parseStringPromise(text, { explicitArray: false, explicitRoot: false });
+  return {
+    raw: text,
+    entry: {
+      id: parsed.id,
+      title: parsed.title,
+      updated: parsed.updated,
+      published: parsed.published,
+      content: parsed.content?._ ?? parsed.content,
+      draft: parsed['app:control']?.['app:draft'] === 'yes',
+    },
+  };
+}
+
 export async function updateEntry(env: Env, user: { accessToken: string; accessSecret: string; hatenaId: string }, blogId: string, entryId: string, input: { title?: string; content?: string; draft?: boolean }) {
   const url = `${entryFeedUrl(user.hatenaId, blogId)}/${entryId}`;
   // minimal: require title/content provided; otherwise leave empty
