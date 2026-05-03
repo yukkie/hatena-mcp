@@ -2,7 +2,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
 import type { Env } from '../types';
 import { clearUserHatena, getUserState, saveUserBlog, storeOAuthState } from '../lib/state';
-import { buildAuthorizeUrl, createEntry, getRequestToken, listEntries, updateEntry } from '../lib/hatena';
+import { buildAuthorizeUrl, createEntry, getEntry, getRequestToken, listEntries, updateEntry } from '../lib/hatena';
 import * as z from 'zod';
 
 type HatenaSession = {
@@ -203,6 +203,54 @@ export function buildMcpServer(env: Env, userId: string, requestUrl: string) {
         return { content: [{ type: 'text', text: JSON.stringify(result) }], structuredContent: result };
       } catch (e: any) {
         return { content: [{ type: 'text', text: e?.message ?? 'create_entry failed' }], isError: true };
+      }
+    }
+  );
+
+  server.registerTool(
+    'get_entry',
+    {
+      title: 'Get Hatena blog entry',
+      description: 'Fetches a single entry by entryId. Pass the Hatena admin edit URL (https://blog.hatena.ne.jp/{user}/{blogId}/edit?entry={entryId}) to auto-extract blogId and entryId, or provide them directly.',
+      inputSchema: z.object({
+        blogId: z.string().optional(),
+        entryId: z.string().optional(),
+        url: z.string().optional(),
+      }),
+    },
+    async (args) => {
+      try {
+        const userState = await getUserState(env, userId);
+        if (!userState?.hatena?.hatenaId) return buildOAuthStartResponse(env, userId, requestUrl);
+        const hatena = userState.hatena as ReturnType<typeof ensureHatenaSession>;
+
+        const { blogId, entryIdFromUrl } = await resolveBlogId(env, userId, args);
+        const entryId = args.entryId ?? entryIdFromUrl;
+
+        if (!blogId) {
+          return {
+            content: [{ type: 'text', text: 'No blog registered yet. Please provide your Hatena blog URL and I\'ll register it automatically.' }],
+          };
+        }
+
+        if (!entryId) {
+          return {
+            content: [{
+              type: 'text',
+              text: 'Could not determine the entry ID. Please provide the Hatena admin edit URL in the format:\nhttps://blog.hatena.ne.jp/{username}/{blogId}/edit?entry={entryId}',
+            }],
+          };
+        }
+
+        const result = await getEntry(
+          env,
+          { accessToken: hatena.accessToken, accessSecret: hatena.accessSecret, hatenaId: hatena.hatenaId },
+          blogId,
+          entryId,
+        );
+        return { content: [{ type: 'text', text: JSON.stringify(result) }], structuredContent: result };
+      } catch (e: any) {
+        return { content: [{ type: 'text', text: e?.message ?? 'get_entry failed' }], isError: true };
       }
     }
   );
